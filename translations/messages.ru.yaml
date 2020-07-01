@@ -1,0 +1,17 @@
+Geographical objects search: Поиск объектов
+Input address: Введите адрес
+Search: Поиск
+Found: Найдено объектов
+More: Загрузить еще
+It seems you've never searched for any items. Let's start searching now!: История поиска пуста. Начните поиск прямо сейчас!
+Your search history: История поиска
+Latitude: Широта
+longitude: долгота
+not found: не найдено
+Metro station: Станция метро
+Powered by: Разработано с использованием
+Yandex Geocoder API: API Геокодера Яндекс
+An error occured: Произошла ошибка
+Search results: Результат поиска
+Query string is required: Строка поиска не может бюыть пустой
+Query string must contain at least 3 symbols: Введите минимум 3 символа

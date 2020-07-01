@@ -1,0 +1,169 @@
+{% extends 'base.html.twig' %}
+{% block body %}
+    <div class="header">
+        <div class="locale-switcher-container">
+            {% if app.request.getLocale() == 'ru' %}
+                <button type="button" class="btn btn-light" onclick="window.location = '{{ path('app_main', {'_locale': 'en'}) }}';">EN</button>
+                <button type="button" class="btn btn-dark">RU</button>
+            {% else %}
+                <button type="button" class="btn btn-dark">EN</button>
+                <button type="button" class="btn btn-light" onclick="window.location = '{{ path('app_main', {'_locale': 'ru'}) }}';">RU</button>
+            {% endif %}
+        </div>
+        <div class="header-center">
+            <h1>{% trans %}Geographical objects search{% endtrans %}</h1>
+            <form class="form-inline" id="queryForm">
+                <div class="form-group mx-sm-3 mb-2">
+                    <label for="queryInput" class="sr-only">Input address</label>
+                    <input type="text" class="form-control" id="queryInput" name="queryInput" placeholder="{% trans %}Input address{% endtrans %}" >
+                </div>
+                <button type="button" class="btn btn-primary mb-2" id="startSearch">{% trans %}Search{% endtrans %}</button>
+            </form>
+            <div id="errorLabel"></div>
+        </div>
+    </div>
+    <div class="data">
+        <h4 id="dataTitle"></h4>
+        <p id="foundedCountContainer">{% trans %}Found{% endtrans %}: <span id="foundedCount"></span></p>
+        <div id="dataContainer"></div>
+        <button type="button" id="loadMoreButton" class="btn btn-primary">{% trans %}More{% endtrans %}</button>
+    </div>
+    <div class="footer">
+        <p>{% trans %}Powered by{% endtrans %} <a href="https://tech.yandex.ru/maps/geocoder/">{% trans %}Yandex Geocoder API{% endtrans %}</a></p>
+    </div>
+{% endblock %}
+{% block javascripts %}
+    <script>
+        $(document).ready(function () {
+            let savedSearchResults = $.cookie('previous');
+            $('#errorLabel').hide();
+            $("#foundedCountContainer").hide();
+            $("#loadMoreButton").hide();
+            if (! savedSearchResults)
+            {
+                $("#dataTitle").text("{% trans %}It seems you've never searched for any items. Let's start searching now!{% endtrans %}")
+            }
+            else
+            {
+                $("#dataTitle").text("{% trans %}Your search history{% endtrans %}");
+                let savedSearchResults = JSON.parse($.cookie('previous'));
+                displayItems(savedSearchResults);
+            }
+
+            $("#startSearch").click(function () {
+                $('#queryForm').validate({
+                    rules: {
+                        queryInput: {
+                            required: true,
+                            minlength: 3
+                        }
+                    },
+                    messages: {
+                        queryInput: {
+                            required: '{% trans %}Query string is required{% endtrans %}',
+                            minlength: '{% trans %}Query string must contain at least 3 symbols{% endtrans %}'
+                        }
+                    },
+                    errorElement: 'div',
+                    errorPlacement: function (error, element) {
+                        $('#errorLabel').show();
+                        $('#errorLabel').empty().append(error);
+                    },
+                    success: function (label, element) {
+                        $('#errorLabel').hide();
+                        $('#errorLabel').empty();
+                    }
+                });
+                if ($('#queryForm').valid())
+                {
+                    $('#dataContainer').empty();
+                    count = 10;
+                    offset = 0;
+                    loadData();
+                }
+            });
+
+
+        });
+
+        function saveCookie(result)
+        {
+            let savedSearchResults = [];
+            if ($.cookie('previous')){
+                savedSearchResults = JSON.parse($.cookie('previous'));
+            }
+            savedSearchResults.unshift(result);
+            $.cookie('previous', null);
+            if (savedSearchResults.length > 5)
+            {
+                savedSearchResults = savedSearchResults.slice(0, 5);
+            }
+            $.cookie('previous', JSON.stringify(savedSearchResults));
+        }
+
+        function displayItems(itemsData)
+        {
+            for(item in itemsData)
+            {
+                let dataItem = $("<div></div>", {'class': 'item'});
+                let imageItem = $('<div></div>', {'class': 'icon-container'}).appendTo(dataItem);
+                $('<img>', {'src': '/img/position.png', 'alt': 'icon', 'class': 'image-icon'}).appendTo(imageItem);
+                let textItem = $('<div></div>', {'class': 'text-info-container'}).appendTo(dataItem);
+                let structAddress = itemsData[item].structAddress;
+                $("<h5>").text(structAddress).appendTo(textItem);
+                let coords = '{% trans %}Latitude{% endtrans %}: ' + itemsData[item].latitude + ', {% trans %}longitude{% endtrans %}: ' + itemsData[item].longitude;
+                $("<p>").text(coords).appendTo(textItem);
+                let metro = itemsData[item].metro;
+                if (metro === undefined)
+                {
+                    metro = '{% trans %}not found{% endtrans %}'
+                }
+                $("<p>").text('{% trans %}Metro station{% endtrans %}: ' + metro).appendTo(textItem);
+                $("#dataContainer").append(dataItem);
+            }
+        }
+
+        let lang = '{{ loc }}', count = 10, offset = 0;
+
+        function loadData()
+        {
+            let queryText = $("#queryInput").val();
+
+            $.ajax({
+                url: '{{ url('get_address_data_rest') }}',
+                method: 'POST',
+                data: {
+                    address: queryText,
+                    lang: lang,
+                    count: count,
+                    offset: offset
+                },
+                success: function (data) {
+                    let loadedCount = data['count'];
+                    offset += loadedCount;
+                    let itemsData = data['data'];
+                    $("#foundedCountContainer").show();
+                    $('#foundedCount').text(offset);
+                    $("#dataTitle").text("{% trans %}Search results{% endtrans %}");
+                    displayItems(itemsData);
+                    itemsData.forEach(x => saveCookie(x));
+                    if (loadedCount < count)
+                    {
+                        $('#loadMoreButton').hide();
+                    }
+                    else
+                    {
+                        $('#loadMoreButton').show();
+                    }
+                },
+                error: function () {
+                    $("#dataTitle").text("{% trans %}An error occured{% endtrans %}");
+                }
+            });
+        }
+
+        $("#loadMoreButton").click(function () {
+            loadData();
+        });
+    </script>
+{% endblock %}
